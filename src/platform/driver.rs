@@ -15,6 +15,7 @@ pub mod syscntl {
 // ToDo: Port to HAL crate
 pub mod gpio {
     #[inline]
+    #[allow(non_snake_case)]
     pub fn GPIO_EnableIRQ(pin: u8, irq: u8, low_input: bool, release_wait: bool, debounce: u8) {
         unsafe {
             crate::bindings::GPIO_EnableIRQ(
@@ -29,11 +30,13 @@ pub mod gpio {
     }
 
     #[inline]
+    #[allow(non_snake_case)]
     pub fn GPIO_RegisterCallback(irq: u8, callback: unsafe extern "C" fn()) {
         unsafe { crate::bindings::GPIO_RegisterCallback(irq as i32, Some(callback)) }
     }
 
     #[inline]
+    #[allow(non_snake_case)]
     pub fn GPIO_ConfigurePin(pin: u32, mode: u32, function: u32, high: bool) {
         unsafe { crate::bindings::GPIO_ConfigurePin(0, pin, mode, function, high) }
     }
