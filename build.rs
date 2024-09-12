@@ -1,5 +1,8 @@
 use std::env;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::Read;
+use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 
 const INCLUDE_PATHS: &[&str] = &[
@@ -513,7 +516,66 @@ fn compile_sdk(
     //     .compile("boot");
 }
 
+// Panics in case something is wrong
+fn check_env() -> Result<(), String> {
+    let expected_target = "thumbv6m-none-eabi";
+    let target = getenv("TARGET");
+    if target != expected_target {
+        return Err(format!(
+            "Invalid target `{target}` for this crate. Only `{expected_target}` is valid"
+        ));
+    }
+
+    if env::var("SDK_PATH").is_err() {
+        return Err("SDK_PATH is missing. Must be set to DA145XX SDK path".into());
+    }
+
+    #[derive(PartialEq, Eq)]
+    struct SdkVersion([u32; 4]);
+
+    fn parse_version(path: &Path) -> Result<SdkVersion, String> {
+        let buf = {
+            let mut file = File::open(path).map_err(|e| e.to_string())?;
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).map_err(|e| e.to_string())?;
+            buf
+        };
+        let first_line = buf.lines().next().ok_or("version file empty")?;
+        const PREFIX: &str = "#define SDK_VERSION \"v_";
+        const SUFFIX: &str = "\"";
+        if let Some(s) = first_line.strip_prefix(PREFIX) {
+            if let Some(s) = s.strip_suffix(SUFFIX) {
+                let mut parts = [0; 4];
+                for (i, part) in s.split(".").enumerate() {
+                    parts[i] = part.parse().map_err(|e: ParseIntError| e.to_string())?;
+                }
+                Ok(SdkVersion(parts))
+            } else {
+                Err(format!("could not strip suffix {SUFFIX}"))
+            }
+        } else {
+            Err(format!("could not strip prefix {PREFIX}"))
+        }
+    }
+
+    let path = PathBuf::from_iter([&getenv("SDK_PATH"), "sdk/platform/include/sdk_version.h"]);
+    match parse_version(&path) {
+        Ok(version) => {
+            if version != SdkVersion([6, 0, 22, 1401]) {
+                println!("cargo::warning=SDK has only been tested with 6.0.22.1401");
+            }
+            Ok(())
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 fn main() {
+    if let Err(e) = check_env() {
+        println!("cargo::warning={}", e);
+        return;
+    }
+
     let (include_dirs, include_files, sdk_c_sources, sdk_asm_sources, defines) = setup_build();
 
     generate_user_config();
