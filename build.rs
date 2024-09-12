@@ -461,11 +461,11 @@ fn generate_bindings(
 }
 
 fn compile_sdk(
-    include_dirs: &Vec<String>,
-    include_files: &Vec<String>,
-    defines: &Vec<(String, Option<String>)>,
-    sdk_c_sources: &Vec<String>,
-    _sdk_asm_sources: &Vec<String>,
+    include_dirs: &[String],
+    include_files: &[String],
+    defines: &[(String, Option<String>)],
+    sdk_c_sources: &[String],
+    _sdk_asm_sources: &[String],
 ) {
     let mut cc_builder = cc::Build::new();
 
