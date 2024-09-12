@@ -435,6 +435,7 @@ fn generate_bindings(
     let sysroot = PathBuf::from(std::str::from_utf8(&sysroot.stdout).unwrap().trim_end());
     let mut builder = bindgen::Builder::default()
         .header("bindings.h")
+        .wrap_static_fns(true)
         .ctypes_prefix("cty")
         .use_core()
         .size_t_is_usize(true)
@@ -506,6 +507,14 @@ fn compile_sdk(
 
     for file in sdk_c_sources {
         cc_builder = cc_builder.file(translate_path(file));
+    }
+
+    // Bindgen creates a C-file for static fns
+    {
+        let mut path = env::temp_dir();
+        path.extend(["bindgen", "extern.c"]);
+        cc_builder.file(translate_path(path.to_str().unwrap()));
+        cc_builder.include(translate_path(&getenv("CARGO_MANIFEST_DIR")));
     }
 
     cc_builder.compile("sdk");
