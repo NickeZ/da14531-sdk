@@ -1,8 +1,12 @@
+use std::convert::AsRef;
 use std::env;
 use std::ffi::OsStr;
+use std::fmt::{self, Display, Formatter};
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::num::ParseIntError;
+use std::str::FromStr;
+
 use std::path::{Path, PathBuf};
 
 const INCLUDE_PATHS: &[&str] = &[
@@ -77,6 +81,7 @@ const INCLUDE_PATHS: &[&str] = &[
     "/sdk/platform/utilities/otp_hdr",
     "/third_party/hash",
     "/third_party/irng",
+    "/third_party/rand",
 ];
 const CONFIG_HEADERS: &[&str] = &[
     "da1458x_config_basic.h",
@@ -126,116 +131,165 @@ const SDK_C_SOURCES: &[&str] = &[
 //    "/sdk/platform/arch/boot/GCC/startup_DA14531.S"
 //];
 
+enum ConfigItemValue {
+    Undefined,
+    Defined,
+    Number(i32),
+    Raw(String),
+}
+
+impl FromStr for ConfigItemValue {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use ConfigItemValue::*;
+        if s.to_lowercase() == "undefined" {
+            Ok(Undefined)
+        } else if s.to_lowercase() == "defined" {
+            Ok(Defined)
+        } else if let Ok(integer) = s.parse() {
+            Ok(Number(integer))
+        } else {
+            Ok(Raw(format!("\"{s}\"")))
+        }
+    }
+}
+
+struct ConfigItem {
+    name: String,
+    value: ConfigItemValue,
+}
+
+impl ConfigItem {
+    fn new(name: &str, mut value: ConfigItemValue) -> Self {
+        if let Ok(var) = env::var(format!("DA14531_{}", name)) {
+            // Unwrap is fine because implementation never errors.
+            // See `impl FromStr for ConfigItemValue`.
+            value = var.parse().unwrap()
+        }
+        ConfigItem {
+            name: name.to_string(),
+            value,
+        }
+    }
+}
+
+impl Display for ConfigItem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match &self.value {
+            ConfigItemValue::Undefined => write!(f, "#undef {}", self.name),
+            ConfigItemValue::Defined => write!(f, "#define {}", self.name),
+            ConfigItemValue::Number(n) => write!(f, "#define {} ({})", self.name, n),
+            ConfigItemValue::Raw(s) => write!(f, "#define {} {}", self.name, s),
+        }
+    }
+}
+
+fn read_file(file: impl AsRef<Path>) -> String {
+    let mut fh = File::open(file).expect("File should be openable");
+    let mut res = String::new();
+    fh.read_to_string(&mut res)
+        .expect("File should be readable");
+    res
+}
+
 fn getenv(var: impl AsRef<OsStr>) -> String {
     env::var(var).unwrap()
 }
 
+fn generate_header(name: &str, vars: &[ConfigItem]) {
+    let template = format!("{}.in", name);
+    let template = PathBuf::from_iter(["include", &template]);
+    let template = read_file(template);
+    let res = envsubst::substitute(
+        template,
+        &vars
+            .iter()
+            .map(|v| (v.name.to_string(), v.to_string()))
+            .collect(),
+    )
+    .unwrap();
+    let mut outfile = File::create(PathBuf::from_iter([&getenv("OUT_DIR"), name])).unwrap();
+    outfile.write_all(res.as_bytes()).unwrap();
+}
+
+// All default values can be overridden using environment variables, the prefix is "DA14531_". So
+// for example DA14531_CFG_TRNG=Undefined will set CFG_TRNG to Undefined.
+
+fn generate_da14531_config_advanced() {
+    use ConfigItemValue::*;
+    #[rustfmt::skip]
+    let vars = &[
+        ConfigItem::new("CFG_TRNG", Defined),
+        ConfigItem::new("CFG_USE_CHACHA20_RAND", Undefined),
+        ConfigItem::new("DB_HEAP_SZ", Undefined),
+        ConfigItem::new("ENV_HEAP_SZ", Undefined),
+        ConfigItem::new("MSG_HEAP_SZ", Undefined),
+        ConfigItem::new("NON_RET_HEAP_SZ", Undefined),
+        ConfigItem::new("CFG_USE_AES", Defined),
+        ConfigItem::new("CFG_AES_DECRYPT", Defined),
+    ];
+    generate_header("da14531_config_advanced.h", vars);
+}
+
+fn generate_da14531_config_basic() {
+    use ConfigItemValue::*;
+    #[rustfmt::skip]
+    let vars = &[
+        ConfigItem::new("CFG_APP", Defined),
+        ConfigItem::new("CFG_APP_SECURITY",  if cfg!(feature = "app_security") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_WDOG", Defined),
+        ConfigItem::new("CFG_WDG_TRIGGER_HW_RESET_IN_PRODUCTION_MODE", Undefined),
+        ConfigItem::new("CFG_MAX_CONNECTIONS", Number(1)),
+        ConfigItem::new("CFG_DEVELOPMENT_DEBUG", Defined),
+        ConfigItem::new("CFG_PRINTF", Undefined),
+        ConfigItem::new("CFG_UART1_SDK", Undefined),
+        ConfigItem::new("CFG_SPI_FLASH_ENABLE", Undefined),
+        ConfigItem::new("CFG_I2C_EEPROM_ENABLE", Undefined),
+        ConfigItem::new("CFG_UART_DMA_SUPPORT", Undefined),
+        ConfigItem::new("CFG_SPI_DMA_SUPPORT", Undefined),
+        ConfigItem::new("CFG_I2C_DMA_SUPPORT", Undefined),
+        ConfigItem::new("CFG_ADC_DMA_SUPPORT", Undefined),
+        ConfigItem::new("CFG_POWER_MODE_BYPASS", Undefined),
+    ];
+    generate_header("da14531_config_basic.h", vars);
+}
+
 fn generate_user_modules_config() {
-    let exclude_dlg_custs1 = if cfg!(feature = "profile_custom_server1") {
-        0
-    } else {
-        1
-    };
-    let exclude_dlg_custs2 = if cfg!(feature = "profile_custom_server2") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_diss = if cfg!(feature = "profile_dis_server") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_proxr = if cfg!(feature = "profile_prox_reporter") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_bass = if cfg!(feature = "profile_batt_server") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_suotar = if cfg!(feature = "profile_suota_receiver") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_findt = if cfg!(feature = "profile_findme_target") {
-        0
-    } else {
-        1
-    };
-
-    let exclude_dlg_findl = if cfg!(feature = "profile_findme_locator") {
-        0
-    } else {
-        1
-    };
-
-    let header = format!(
-        "
-#pragma once
-
-#define EXCLUDE_DLG_GAP             (0)
-#define EXCLUDE_DLG_TIMER           (0)
-#define EXCLUDE_DLG_MSG             (1)
-#define EXCLUDE_DLG_SEC             (1)
-#define EXCLUDE_DLG_DISS            ({exclude_dlg_diss})
-#define EXCLUDE_DLG_PROXR           ({exclude_dlg_proxr})
-#define EXCLUDE_DLG_BASS            ({exclude_dlg_bass})
-#define EXCLUDE_DLG_FINDL           ({exclude_dlg_findl})
-#define EXCLUDE_DLG_FINDT           ({exclude_dlg_findt})
-#define EXCLUDE_DLG_SUOTAR          ({exclude_dlg_suotar})
-#define EXCLUDE_DLG_CUSTS1          ({exclude_dlg_custs1})
-#define EXCLUDE_DLG_CUSTS2          ({exclude_dlg_custs2})"
-    );
-
-    let out_path = PathBuf::from(getenv("OUT_DIR"));
-    std::fs::write(out_path.join("user_modules_config.h"), header).unwrap();
+    use ConfigItemValue::*;
+    #[rustfmt::skip]
+    let vars = &[
+        ConfigItem::new("EXCLUDE_DLG_GAP", Number(0)),
+        ConfigItem::new("EXCLUDE_DLG_TIMER", Number(0)),
+        ConfigItem::new("EXCLUDE_DLG_MSG", Number(1)),
+        ConfigItem::new("EXCLUDE_DLG_SEC", Number(1)),
+        ConfigItem::new("EXCLUDE_DLG_DISS", Number(if cfg!(feature = "profile_dis_server") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_PROXR", Number(if cfg!(feature = "profile_prox_reporter") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_BASS", Number(if cfg!(feature = "profile_batt_server") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_FINDL", Number(if cfg!(feature = "profile_findme_locator") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_FINDT", Number(if cfg!(feature = "profile_findme_target") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_SUOTAR", Number(if cfg!(feature = "profile_suota_receiver") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_CUSTS1", Number(if cfg!(feature = "profile_custom_server1") { 0 } else { 1 })),
+        ConfigItem::new("EXCLUDE_DLG_CUSTS2", Number(if cfg!(feature = "profile_custom_server2") { 0 } else { 1 })),
+    ];
+    generate_header("user_modules_config.h", vars);
 }
 
 fn generate_user_profiles_config() {
-    let mut header = String::from("#pragma once\n");
-
-    if cfg!(feature = "profile_custom_server1") {
-        header += "#define CFG_PRF_CUST1\n";
-    };
-    if cfg!(feature = "profile_custom_server2") {
-        header += "#define CFG_PRF_CUST2\n";
-    };
-
-    if cfg!(feature = "profile_dis_server") {
-        header += "#define CFG_PRF_DISS\n";
-    };
-
-    if cfg!(feature = "profile_prox_reporter") {
-        header += "#define CFG_PRF_PXPR\n";
-    };
-
-    if cfg!(feature = "profile_batt_server") {
-        header += "#define CFG_PRF_BASS\n";
-    };
-
-    if cfg!(feature = "profile_suota_receiver") {
-        header += "#define CFG_PRF_SUOTAR\n";
-    };
-
-    if cfg!(feature = "profile_findme_target") {
-        header += "#define CFG_PRF_FMPT\n";
-    };
-
-    if cfg!(feature = "profile_findme_locator") {
-        header += "#define CFG_PRF_FMPL\n";
-    };
-
-    let out_path = PathBuf::from(getenv("OUT_DIR"));
-    std::fs::write(out_path.join("user_profiles_config.h"), header).unwrap();
+    use ConfigItemValue::*;
+    #[rustfmt::skip]
+    let vars = &[
+        ConfigItem::new("CFG_PRF_CUST1", if cfg!(feature = "profile_custom_server1") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_CUST2", if cfg!(feature = "profile_custom_server2") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_DISS", if cfg!(feature = "profile_dis_server") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_PXPR", if cfg!(feature = "profile_prox_reporter") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_BASS", if cfg!(feature = "profile_batt_server") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_SUOTAR", if cfg!(feature = "profile_suota_receiver") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_FMPT", if cfg!(feature = "profile_findme_target") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_FMPL", if cfg!(feature = "profile_findme_locator") { Defined } else { Undefined }),
+        ConfigItem::new("CFG_PRF_GATTC", if cfg!(feature = "profile_gatt_client") { Defined } else { Undefined }),
+    ];
+    generate_header("user_profiles_config.h", vars);
 }
 
 fn generate_user_config() {
@@ -267,25 +321,14 @@ fn generate_user_config() {
         panic!("One sleep mode feature flag has to be set!");
     };
 
-    let header = format!(
-        "
-#pragma once
-
-#include \"app_user_config.h\"
-#include \"arch_api.h\"
-#include \"app_default_handlers.h\"
-#include \"app_adv_data.h\"
-#include \"co_bt.h\"
-
-#define USER_CFG_ADDRESS_MODE {address_mode}
-#define USER_CFG_CNTL_PRIV_MODE APP_CFG_CNTL_PRIV_MODE_NETWORK
-static const sleep_state_t app_default_sleep_mode = {sleep_mode};
-
-extern const struct default_handlers_configuration user_default_hnd_conf;"
-    );
-
-    let out_path = PathBuf::from(getenv("OUT_DIR"));
-    std::fs::write(out_path.join("user_config.h"), header).unwrap();
+    #[rustfmt::skip]
+    let vars = &[
+        ConfigItem::new("USER_CFG_ADDRESS_MODE", ConfigItemValue::Raw(address_mode.to_string())),
+        ConfigItem::new("USER_CFG_CNTL_PRIV_MODE", ConfigItemValue::Raw("APP_CFG_CNTL_PRIV_MODE_NETWORK".to_string())),
+        ConfigItem::new("USER_CFG_ARCH_SLEEP_MODE", ConfigItemValue::Raw(sleep_mode.to_string())),
+        ConfigItem::new("USER_DEVICE_NAME", ConfigItemValue::Raw("\"\"".to_string())),
+    ];
+    generate_header("user_config.h", vars);
 }
 
 fn setup_build() -> (
@@ -308,37 +351,13 @@ fn setup_build() -> (
     #[allow(unused_mut)]
     let mut sdk_c_sources: Vec<String> = SDK_C_SOURCES.iter().map(|s| String::from(*s)).collect();
 
-    let mut defines: Vec<(&str, Option<&str>)> = vec![("__DA14531__", None)];
+    let defines: Vec<(&str, Option<&str>)> = vec![("__DA14531__", None)];
 
     #[allow(unused_mut)]
     let mut include_files: Vec<String> = Vec::new();
 
-    // Enable TRNG
-    defines.push(("CFG_USE_CHACHA20_RAND", None));
-
-    #[cfg(feature = "address_mode_public")]
-    {
-        defines.push(("USER_CFG_ADDRESS_MODE", Some("APP_CFG_ADDR_PUB")));
-    }
-
-    #[cfg(feature = "address_mode_static")]
-    {
-        defines.push(("USER_CFG_ADDRESS_MODE", Some("APP_CFG_ADDR_STATIC")));
-    }
-
-    #[cfg(feature = "ble_server_profiles")]
-    {
-        defines.push(("BLE_SERVER_PRF", None));
-    }
-
-    #[cfg(feature = "ble_client_profiles")]
-    {
-        defines.push(("BLE_CLIENT_PRF", None));
-    }
-
     #[cfg(feature = "profile_gatt_client")]
     {
-        defines.push(("CFG_PRF_GATTC", None));
         include_dirs.push(translate_path(
             "/sdk/ble_stack/profiles/gatt/gatt_client/api",
         ));
@@ -347,21 +366,18 @@ fn setup_build() -> (
 
     #[cfg(feature = "profile_prox_reporter")]
     {
-        defines.push(("CFG_PRF_PXPR", None));
         include_dirs.push(translate_path("/sdk/ble_stack/profiles/prox/proxr/api"));
         include_files.push(translate_path("/sdk/app_modules/api/app_proxr.h"));
     }
 
     #[cfg(feature = "profile_batt_server")]
     {
-        defines.push(("CFG_PRF_PXPR", None));
-        include_dirs.push(translate_path("/sdk/ble_stack/profiles/prox/proxr/api"));
-        include_files.push(translate_path("/sdk/app_modules/api/app_proxr.h"));
+        include_dirs.push(translate_path("/sdk/ble_stack/profiles/bas/bass/api"));
+        include_files.push(translate_path("/sdk/app_modules/api/app_bass.h"));
     }
 
     #[cfg(feature = "profile_findme_target")]
     {
-        defines.push(("CFG_PRF_FMPT", None));
         include_dirs.push(translate_path("/sdk/ble_stack/profiles/find/findt/api"));
         include_dirs.push(translate_path("/sdk/ble_stack/profiles/find"));
         include_files.push(translate_path("/sdk/app_modules/api/app_findme.h"));
@@ -440,7 +456,6 @@ fn generate_bindings(
         .use_core()
         .size_t_is_usize(true)
         .clang_arg("-D__SOFTFP__")
-        .clang_arg("-DUSER_DEVICE_NAME_LEN=0")
         .clang_arg(format!("--sysroot={}", sysroot.to_str().unwrap()))
         .clang_arg("-Wno-expansion-to-defined");
 
@@ -490,8 +505,9 @@ fn compile_sdk(
         .flag("-fstack-usage")
         .flag("-ffunction-sections")
         .flag("-fdata-sections")
-        .opt_level_str("z")
-        .define("USER_DEVICE_NAME_LEN", Some("0"));
+        .flag("-specs=nano.specs")
+        .flag("-specs=nosys.specs")
+        .opt_level_str("z");
 
     for inc_dir in include_dirs {
         cc_builder = cc_builder.include(translate_path(inc_dir));
@@ -590,6 +606,8 @@ fn main() {
     generate_user_config();
     generate_user_modules_config();
     generate_user_profiles_config();
+    generate_da14531_config_basic();
+    generate_da14531_config_advanced();
 
     generate_bindings(
         &include_dirs,
@@ -616,23 +634,23 @@ fn main() {
 
     println!(
         "cargo:rerun-if-changed={}",
-        &translate_path("include/da1458x_config_basic.h")
+        &translate_path("include/da14531_config_basic.h.in")
     );
     println!(
         "cargo:rerun-if-changed={}",
-        &translate_path("include/da1458x_config_advanced.h")
+        &translate_path("include/da14531_config_advanced.h.in")
     );
     println!(
         "cargo:rerun-if-changed={}",
-        &translate_path("include/user_callback_config.h")
+        &translate_path("include/user_callback_config.h.in")
     );
     println!(
         "cargo:rerun-if-changed={}",
-        &translate_path("include/user_custs_config.h")
+        &translate_path("include/user_custs_config.h.in")
     );
     println!(
         "cargo:rerun-if-changed={}",
-        &translate_path("include/user_periph_setup.h")
+        &translate_path("include/user_periph_setup.h.in")
     );
 }
 

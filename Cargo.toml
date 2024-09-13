@@ -29,6 +29,7 @@ rtt-target = "0.3.1"
 [build-dependencies]
 bindgen = {version="0.70.1", features=["experimental"]}
 cc = "1.0"
+envsubst = "0.2.1"
 
 [features]
 default = [
@@ -85,3 +86,4 @@ profile_wss_server = ["ble_server_profiles"]
 
 # Other features
 exclude_dlg_timer = []
+app_security = []
