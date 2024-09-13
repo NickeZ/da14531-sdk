@@ -595,6 +595,43 @@ fn check_env() -> Result<(), String> {
     }
 }
 
+fn generate_linker_script(include_dirs: &[String], defines: &[(String, Option<String>)]) {
+    let path = PathBuf::from_iter([
+        &getenv("SDK_PATH"),
+        "sdk",
+        "common_project_files",
+        "ldscripts",
+        "ldscript_DA14531.lds.S",
+    ]);
+    let mut cc_builder = cc::Build::new();
+    cc_builder
+        .file(path.as_os_str())
+        .flag("-Wno-expansion-to-defined")
+        .flag("-Wno-unused-parameter")
+        .flag("-specs=nano.specs")
+        .flag("-specs=nosys.specs");
+
+    for inc_dir in include_dirs {
+        cc_builder.include(translate_path(inc_dir));
+    }
+
+    for (key, value) in defines {
+        cc_builder.define(key, value.as_ref().map(|v| v.as_str()));
+    }
+    let content = cc_builder.expand();
+    let out_path = PathBuf::from_iter([&getenv("OUT_DIR"), "ldscript_DA14531.lds"]);
+    let mut fh = File::create(out_path).unwrap();
+    fh.write_all(&content).unwrap();
+
+    // Search path to ldscript_DA14531.lds
+    // Picking the linker script is done by the consuming crate
+    println!("cargo::rustc-link-search={}", getenv("OUT_DIR"));
+    // Search path to da14531_symbols.lds, used by the linker script
+    let path = PathBuf::from_iter([&getenv("SDK_PATH"), "sdk", "common_project_files", "misc"]);
+    let path = path.to_str().unwrap();
+    println!("cargo::rustc-link-search={path}");
+}
+
 fn main() {
     if let Err(e) = check_env() {
         println!("cargo::warning={}", e);
@@ -628,6 +665,8 @@ fn main() {
         &sdk_c_sources,
         &sdk_asm_sources,
     );
+
+    generate_linker_script(&include_dirs, &defines);
 
     println!("cargo:rerun-if-changed=bindings.h");
     println!("cargo:rerun-if-changed=build.rs");
