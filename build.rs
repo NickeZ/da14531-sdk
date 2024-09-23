@@ -437,11 +437,11 @@ fn generate_bindings(
         .size_t_is_usize(true)
         .clang_arg("-D__SOFTFP__")
         .clang_arg("-DUSER_DEVICE_NAME_LEN=0")
-        .clang_arg(&translate_path("-I/Applications/ARM/arm-none-eabi/include"))
-        .clang_arg(&translate_path(
+        .clang_arg(translate_path("-I/Applications/ARM/arm-none-eabi/include"))
+        .clang_arg(translate_path(
             "-I/usr/lib/gcc/arm-none-eabi/12.2.1/include",
         ))
-        .clang_arg(&translate_path("-I/usr/include/newlib"))
+        .clang_arg(translate_path("-I/usr/include/newlib"))
         .clang_arg("-Wno-expansion-to-defined");
 
     for (key, value) in defines {
@@ -477,7 +477,7 @@ fn compile_sdk(
     include_files: &Vec<String>,
     defines: &Vec<(String, Option<String>)>,
     sdk_c_sources: &Vec<String>,
-    sdk_asm_sources: &Vec<String>,
+    _sdk_asm_sources: &Vec<String>,
 ) {
     let mut cc_builder = cc::Build::new();
 
@@ -498,7 +498,7 @@ fn compile_sdk(
     }
 
     for inc_file in include_files {
-        cc_builder = cc_builder.flag(&format!("-include{}", translate_path(inc_file)));
+        cc_builder = cc_builder.flag(format!("-include{}", translate_path(inc_file)));
     }
 
     for (key, value) in defines {
