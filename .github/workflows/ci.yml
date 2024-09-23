@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: cargo build
+    runs-on: ubuntu-latest
+    # Secrets are not available to pull request builds
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          target: thumbv6m-none-eabi
+          # rustfmt is a default requirement of bindgen
+          components: rustfmt
+          # Turn of -Dwarning for now since we have so many warnings.
+          rustflags: ""
+      - name: install gcc toolchain
+        run: |
+          curl -LsSO https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi.tar.xz
+          tar xf arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi.tar.xz -C /opt
+          echo /opt/arm-gnu-toolchain-13.3.rel1-x86_64-arm-none-eabi/bin >> $GITHUB_PATH
+      - name: install sdk
+        env:
+          SDK_ENC_KEY: ${{ secrets.SDK_ENC_KEY }}
+        # Do the decrypting in a separate script to avoid prinitn out the
+        # encryption key
+        run: |
+          ./vendor/decrypt.sh
+          (cd /opt; unzip -q ${{ github.workspace }}/vendor/SDK_6.0.22.1401.zip)
+          patch -p1 -d /opt < vendor/patches/0001-itoa-already-provided-by-newlib.patch
+      - name: cargo build
+        env:
+          SDK_PATH: /opt/DA145xx_SDK/6.0.22.1401
+        run: cargo build --target=thumbv6m-none-eabi
+
+  # Check formatting with rustfmt
+  formatting:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Ensure rustfmt is installed and setup problem matcher
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - name: Rustfmt Check
+        uses: actions-rust-lang/rustfmt@v1
+
