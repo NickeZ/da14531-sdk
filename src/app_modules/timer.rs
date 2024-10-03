@@ -64,6 +64,7 @@ impl TimerState {
 }
 
 const INIT: TimerState = TimerState::None;
+#[used]
 #[link_section = "retention_mem_area0"]
 static mut TIMER_CALLBACKS: [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] =
     [INIT; APP_MODULES_TIMER_MAX_NUM as usize];
