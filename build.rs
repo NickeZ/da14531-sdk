@@ -336,13 +336,15 @@ fn generate_user_config() {
     generate_header("user_config.h", vars);
 }
 
-fn setup_build() -> (
-    Vec<String>,
-    Vec<String>,
-    Vec<String>,
-    Vec<String>,
-    Vec<(String, Option<String>)>,
-) {
+struct BuildInfo {
+    include_dirs: Vec<String>,
+    include_files: Vec<String>,
+    sdk_c_sources: Vec<String>,
+    sdk_asm_sources: Vec<String>,
+    defines: Vec<(String, Option<String>)>,
+}
+
+fn setup_build() -> BuildInfo {
     let sdk_path = env::var("SDK_PATH")
         .map(|path| Path::new(&path).to_path_buf())
         .unwrap_or(PathBuf::new().join("..").join("sdk"))
@@ -438,13 +440,13 @@ fn setup_build() -> (
         .map(|(key, value)| (key.to_string(), value.map(|value| value.to_string())))
         .collect();
 
-    (
+    BuildInfo {
         include_dirs,
         include_files,
         sdk_c_sources,
         sdk_asm_sources,
         defines,
-    )
+    }
 }
 
 fn generate_bindings(
@@ -535,7 +537,7 @@ fn compile_sdk(
     }
 
     for inc_file in include_files {
-        cc_builder = cc_builder.flag(&format!("-include{}", translate_path(inc_file)));
+        cc_builder = cc_builder.flag(format!("-include{}", translate_path(inc_file)));
     }
 
     for (key, value) in defines {
@@ -658,7 +660,13 @@ fn main() {
         return;
     }
 
-    let (include_dirs, include_files, sdk_c_sources, sdk_asm_sources, defines) = setup_build();
+    let BuildInfo {
+        include_dirs,
+        include_files,
+        sdk_c_sources,
+        sdk_asm_sources,
+        defines,
+    } = setup_build();
 
     generate_user_config();
     generate_user_modules_config();
