@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 const INCLUDE_PATHS: &[&str] = &[
@@ -122,6 +123,10 @@ const SDK_C_SOURCES: &[&str] = &[
 //    "/sdk/platform/arch/boot/GCC/startup_DA14531.S"
 //];
 
+fn getenv(var: impl AsRef<OsStr>) -> String {
+    env::var(var).unwrap()
+}
+
 fn generate_user_modules_config() {
     let exclude_dlg_custs1 = if cfg!(feature = "profile_custom_server1") {
         0
@@ -188,7 +193,7 @@ fn generate_user_modules_config() {
 #define EXCLUDE_DLG_CUSTS2          ({exclude_dlg_custs2})"
     );
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(getenv("OUT_DIR"));
     std::fs::write(out_path.join("user_modules_config.h"), header).unwrap();
 }
 
@@ -226,7 +231,7 @@ fn generate_user_profiles_config() {
         header += "#define CFG_PRF_FMPL\n";
     };
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(getenv("OUT_DIR"));
     std::fs::write(out_path.join("user_profiles_config.h"), header).unwrap();
 }
 
@@ -276,7 +281,7 @@ static const sleep_state_t app_default_sleep_mode = {sleep_mode};
 extern const struct default_handlers_configuration user_default_hnd_conf;"
     );
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(getenv("OUT_DIR"));
     std::fs::write(out_path.join("user_config.h"), header).unwrap();
 }
 
@@ -373,7 +378,7 @@ fn setup_build() -> (
             .unwrap()
             .to_string(),
     );
-    include_dirs.push(env::var("OUT_DIR").unwrap());
+    include_dirs.push(getenv("OUT_DIR"));
 
     let mut include_files: Vec<_> = include_files
         .iter()
@@ -457,7 +462,7 @@ fn generate_bindings(
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(getenv("OUT_DIR"));
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
