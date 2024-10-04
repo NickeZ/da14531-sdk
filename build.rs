@@ -519,6 +519,9 @@ fn compile_sdk(
     let mut cc_builder = cc_builder
         .flag("-Wno-expansion-to-defined")
         .flag("-Wno-unused-parameter")
+        .flag("-Wno-discarded-qualifiers")
+        .flag("-Wno-old-style-declaration")
+        .flag("-Wno-duplicate-decl-specifier")
         .flag("-fstack-usage")
         .flag("-specs=nano.specs")
         .flag("-specs=nosys.specs")
