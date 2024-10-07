@@ -1,6 +1,6 @@
 pub use crate::bindings::{
     advertise_configuration as AdvertiseConfiguration, app_callbacks as AppCallbacks, app_env,
-    app_prf_srv_perm_t as AppPrfSrvPerm, app_prf_srv_sec_t as AppPrfSrvSec,
+    app_env_tag, app_prf_srv_perm_t as AppPrfSrvPerm, app_prf_srv_sec_t as AppPrfSrvSec,
     catch_rest_event_func_t as CatchRestEventFunc,
     default_advertise_scenario_DEF_ADV_FOREVER as DEF_ADV_FOREVER,
     default_advertise_scenario_DEF_ADV_WITH_TIMEOUT as DEF_ADV_WITH_TIMEOUT,
@@ -11,7 +11,8 @@ pub use crate::bindings::{
     gapm_configuration as GapmConfiguration, prf_func_callbacks as PrfFuncCallbacks,
     prf_func_uint8_t, prf_func_validate_t, prf_func_void_t,
     process_event_response as ProcessEventResponse, timer_hnd as TimerHandle, APP_CFG_ADDR_PUB,
-    APP_CFG_ADDR_STATIC, APP_MSG as AppMsg, EASY_TIMER_INVALID_TIMER, PRFS_TASK_ID_MAX,
+    APP_CFG_ADDR_STATIC, APP_EASY_MAX_ACTIVE_CONNECTION, APP_MSG as AppMsg,
+    EASY_TIMER_INVALID_TIMER, PRFS_TASK_ID_MAX,
 };
 
 pub use da14531_sdk_macros::{
@@ -66,7 +67,14 @@ pub fn append_device_name(
 
 #[inline]
 pub fn app_env_get_conidx(conidx: u8) -> u8 {
-    unsafe { app_env.get_unchecked(conidx as usize).conidx }
+    // Bounds check
+    if conidx > APP_EASY_MAX_ACTIVE_CONNECTION as u8 {
+        panic!();
+    }
+    unsafe {
+        let env = (&raw mut app_env as *mut app_env_tag).offset(conidx.into());
+        (*env).conidx
+    }
 }
 
 #[inline]

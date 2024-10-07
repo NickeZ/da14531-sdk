@@ -63,11 +63,18 @@ impl TimerState {
     }
 }
 
-const INIT: TimerState = TimerState::None;
 #[used]
 #[link_section = "retention_mem_area0"]
 static mut TIMER_CALLBACKS: [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] =
-    [INIT; APP_MODULES_TIMER_MAX_NUM as usize];
+    [const { TimerState::None }; APP_MODULES_TIMER_MAX_NUM as usize];
+
+/// # Safety
+///
+/// Must not be called outside main thread
+#[allow(static_mut_refs)]
+unsafe fn timer_callbacks() -> &'static mut [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] {
+    &mut TIMER_CALLBACKS
+}
 
 // #[link_section = "retention_mem_area0"]
 // static mut MODIFIED_TIMER_CALLBACKS: [TimerState; APP_MODULES_TIMER_MAX_NUM as usize] =
@@ -150,15 +157,13 @@ impl AppTimer {
 
         let timer_idx = timer_handle_to_index(self.0);
 
-        let callback = unsafe { &TIMER_CALLBACKS[timer_idx] };
+        let callback = unsafe { &timer_callbacks()[timer_idx] };
 
         if *callback != TimerState::None && *callback != TimerState::Modified {
             // Remove the timer from the timer queue
             ke_timer_clear(timer_handle_to_msg_id(self.0), TASK_APP as u16);
 
-            unsafe {
-                TIMER_CALLBACKS[timer_idx] = TimerState::Canceled;
-            }
+            unsafe { timer_callbacks()[timer_idx] = TimerState::Canceled };
 
             /*
                 Send a message to the kernel in order to clear the timer callback function and
@@ -176,7 +181,7 @@ impl AppTimer {
     }
 
     pub fn cancel_all() {
-        for (timer_idx, callback) in unsafe { TIMER_CALLBACKS.iter().enumerate() } {
+        for (timer_idx, callback) in unsafe { timer_callbacks().iter().enumerate() } {
             if *callback != TimerState::None && *callback != TimerState::Canceled {
                 let handle = timer_index_to_handle(timer_idx);
                 let timer = AppTimer(handle);
@@ -234,7 +239,7 @@ fn create_timer_handler(handle: TimerHandle, delay: u32) -> KeMsgStatusTag {
 fn cancel_timer_handler(handle: TimerHandle) -> KeMsgStatusTag {
     assert!(is_timer_handle_valid(handle));
     let timer_idx = timer_handle_to_index(handle);
-    let callback = unsafe { &mut TIMER_CALLBACKS[timer_idx] };
+    let callback = unsafe { &mut timer_callbacks()[timer_idx] };
     if *callback == TimerState::Canceled {
         *callback = TimerState::None;
         //         modified_timer_callbacks[i] = NULL;
@@ -267,7 +272,7 @@ fn cancel_timer_handler(handle: TimerHandle) -> KeMsgStatusTag {
 // }
 
 fn call_timer_callback_handler(handle: TimerHandle) -> KeMsgStatusTag {
-    let callback = unsafe { &mut TIMER_CALLBACKS[timer_handle_to_index(handle)] };
+    let callback = unsafe { &mut timer_callbacks()[timer_handle_to_index(handle)] };
 
     if *callback != TimerState::Canceled && *callback != TimerState::Modified {
         if let Some(callback) = callback.take_callback() {
@@ -297,7 +302,7 @@ fn create_timer(delay: u32, handle: TimerHandle) {
 
 #[inline]
 fn register_callback(callback: TimerCallback) -> Option<TimerHandle> {
-    for (idx, callback_entry) in unsafe { TIMER_CALLBACKS.iter_mut().enumerate() } {
+    for (idx, callback_entry) in unsafe { timer_callbacks().iter_mut().enumerate() } {
         if *callback_entry == TimerState::None {
             *callback_entry = TimerState::Active(callback);
             return Some(timer_index_to_handle(idx));

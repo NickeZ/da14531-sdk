@@ -1,14 +1,12 @@
-use core::ptr::addr_of;
-
 use crate::{
     app_modules::{
         app::{zero_app_env_tag, AppEnvTag, APP_EASY_MAX_ACTIVE_CONNECTION},
-        app_cfg_addr_src, app_cfg_addr_type,
+        app_cfg_addr_type,
         app_common::{
             app_default_handler, app_state, AppDeviceInfo, AppDeviceName, APP_CONNECTABLE,
             APP_DISABLED, APP_IDX_MAX, APP_STATE_MAX,
         },
-        ms_to_ble_slots, zero_app_prf_srv_sec, AdvertiseConfiguration, AppCallbacks, AppPrfSrvSec,
+        zero_app_prf_srv_sec, AdvertiseConfiguration, AppCallbacks, AppPrfSrvSec,
         GapmConfiguration, PrfFuncCallbacks, PRFS_TASK_ID_MAX,
     },
     ble_stack::{
@@ -18,15 +16,13 @@ use crate::{
                 KeMsgGapmSetDevConfigCmd, KeMsgGapmStartAdvertiseCmd, GAPM_ADV_UNDIRECT,
                 GAPM_MASK_ATT_SVC_CHG_EN, GAPM_SET_DEV_CONFIG,
             },
-            GAP_AD_TYPE_COMPLETE_NAME, GAP_GEN_DISCOVERABLE, GAP_MAX_NAME_SIZE,
-            GAP_NON_DISCOVERABLE, GAP_ROLE_PERIPHERAL,
+            GAP_AD_TYPE_COMPLETE_NAME, GAP_MAX_NAME_SIZE, GAP_NON_DISCOVERABLE,
+            GAP_ROLE_PERIPHERAL,
         },
     },
     platform::core_modules::{
         common::{
-            co_min, BDAddr, ADV_ALLOW_SCAN_ANY_CON_ANY, ADV_ALLOW_SCAN_ANY_CON_WLST,
-            ADV_ALL_CHNLS_EN, ADV_CHNL_37_EN, ADV_CHNL_38_EN, ADV_CHNL_39_EN, ADV_DATA_LEN,
-            KEY_LEN, SCAN_RSP_DATA_LEN,
+            co_min, BDAddr, ADV_ALLOW_SCAN_ANY_CON_WLST, ADV_DATA_LEN, KEY_LEN, SCAN_RSP_DATA_LEN,
         },
         ke::task::{ke_state_set, ke_task_create, KeTaskDesc},
         rwip::{KeApiId, TASK_APP, TASK_GAPM, TASK_ID_DISS, TASK_ID_INVALID},
@@ -186,7 +182,7 @@ const PRF_FUNCS: [PrfFuncCallbacks;
 static TASK_DESC_APP: KeTaskDesc = KeTaskDesc {
     state_handler: core::ptr::null(),
     default_handler: unsafe { &app_default_handler },
-    state: unsafe { &app_state as *const _ as *mut _ },
+    state: &raw mut app_state as *mut _,
     state_max: APP_STATE_MAX as u16,
     idx_max: APP_IDX_MAX as u16,
 };
@@ -245,8 +241,10 @@ static mut USER_GAPM_CONF: GapmConfiguration = GapmConfiguration {
     max_txtime: 2120,
 };
 
-#[cfg(feature = "address_mode_static")]
-static mut APP_RANDOM_ADDR: BDAddr = BDAddr { addr: [0; 6] };
+#[allow(static_mut_refs)]
+unsafe fn user_gapm_conf() -> &'static mut GapmConfiguration {
+    &mut USER_GAPM_CONF
+}
 
 configure_user_adv_data!(
     {ADV_TYPE_COMPLETE_LIST_16BIT_SERVICE_IDS, 0x6b, 0xfd},
@@ -273,6 +271,7 @@ fn update_device_info() {
 }
 
 fn reset_app_env() {
+    #[allow(static_mut_refs)]
     let app_environment = unsafe { &mut app_env };
 
     app_environment.iter_mut().for_each(|env_entry| {
@@ -332,6 +331,7 @@ pub extern "C" fn app_prf_enable(conidx: u8) {
 }
 
 fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdvertiseCmd {
+    #[allow(static_mut_refs)]
     let user_advertise_data = unsafe { &USER_ADVERTISE_DATA };
 
     assert!(user_advertise_data.len() <= ADV_DATA_LEN as usize);
@@ -433,7 +433,7 @@ fn app_easy_gap_dev_config_create_msg() -> KeMsgGapmSetDevConfigCmd {
 
     msg.operation = GAPM_SET_DEV_CONFIG as u8;
 
-    let user_gapm_conf = unsafe { &USER_GAPM_CONF };
+    let user_gapm_conf = unsafe { &user_gapm_conf() };
 
     msg.role = user_gapm_conf.role as u8;
     msg.max_mtu = user_gapm_conf.max_mtu;
@@ -463,9 +463,7 @@ fn app_easy_gap_dev_config_create_msg() -> KeMsgGapmSetDevConfigCmd {
                 unsafe {
                     app_on_generate_static_random_addr(&mut bd_addr);
                 }
-                unsafe {
-                    msg.addr.addr.copy_from_slice(&bd_addr.addr);
-                }
+                msg.addr.addr.copy_from_slice(&bd_addr.addr);
             } else {
                 panic!("With static address mode, you either need to defined a valid static address or the callback app_on_generate_static_random_addr!");
             }

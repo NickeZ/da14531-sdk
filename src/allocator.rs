@@ -15,7 +15,7 @@ unsafe impl GlobalAlloc for Da14531Allocator {
         ke_malloc(layout.size() as u32, KE_MEM_NON_RETENTION as u8) as *mut u8
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         unsafe { ke_free(ptr as *mut cty::c_void) }
     }
 }
