@@ -505,6 +505,7 @@ fn compile_sdk(
         .files(sdk_asm_sources)
         .flag("-specs=nano.specs")
         .flag("-specs=nosys.specs")
+        .flag("-flto")
         .define("__DA14531__", None)
         .compile_intermediates();
 
@@ -521,7 +522,11 @@ fn compile_sdk(
         .flag("-fdata-sections")
         .flag("-specs=nano.specs")
         .flag("-specs=nosys.specs")
-        .opt_level_str("z");
+        .opt_level_str("z")
+        .flag("-flto")
+        .archiver("arm-none-eabi-gcc-ar")
+        .ranlib("arm-none-eabi-gcc-ranlib")
+        .link_lib_modifier("+whole-archive");
 
     for inc_dir in include_dirs {
         cc_builder = cc_builder.include(translate_path(inc_dir));
