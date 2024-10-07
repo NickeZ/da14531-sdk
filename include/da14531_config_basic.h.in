@@ -93,6 +93,7 @@ ${CFG_PRINTF}
 #ifdef CFG_PRINTF
     #define CFG_PRINTF_UART2
 #endif
+${CFG_UART_ONE_WIRE_SUPPORT}
 
 /****************************************************************************************************************/
 /* UART1 Driver Implementation. If CFG_UART1_SDK is defined, UART1 ROM driver will be overriden and UART SDK    */

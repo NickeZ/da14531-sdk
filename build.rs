@@ -221,13 +221,17 @@ fn generate_da14531_config_advanced() {
     #[rustfmt::skip]
     let vars = &[
         ConfigItem::new("CFG_TRNG", Defined),
+        ConfigItem::new("CFG_ENABLE_SMP_SECURE", Undefined),
         ConfigItem::new("CFG_USE_CHACHA20_RAND", Undefined),
         ConfigItem::new("DB_HEAP_SZ", Undefined),
         ConfigItem::new("ENV_HEAP_SZ", Undefined),
         ConfigItem::new("MSG_HEAP_SZ", Undefined),
         ConfigItem::new("NON_RET_HEAP_SZ", Undefined),
+        ConfigItem::new("CFG_RETAIN_RAM_1_BLOCK", Undefined),
+        ConfigItem::new("CFG_RETAIN_RAM_2_BLOCK", Undefined),
         ConfigItem::new("CFG_USE_AES", Defined),
         ConfigItem::new("CFG_AES_DECRYPT", Defined),
+        ConfigItem::new("GPIO_DRV_PIN_ALLOC_MON_DISABLED", Defined),
     ];
     generate_header("da14531_config_advanced.h", vars);
 }
@@ -243,6 +247,7 @@ fn generate_da14531_config_basic() {
         ConfigItem::new("CFG_MAX_CONNECTIONS", Number(1)),
         ConfigItem::new("CFG_DEVELOPMENT_DEBUG", Defined),
         ConfigItem::new("CFG_PRINTF", Undefined),
+        ConfigItem::new("CFG_UART_ONE_WIRE_SUPPORT", Undefined),
         ConfigItem::new("CFG_UART1_SDK", Undefined),
         ConfigItem::new("CFG_SPI_FLASH_ENABLE", Undefined),
         ConfigItem::new("CFG_I2C_EEPROM_ENABLE", Undefined),

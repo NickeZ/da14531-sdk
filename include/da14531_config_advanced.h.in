@@ -82,7 +82,7 @@ ${CFG_TRNG}
 /* The ECDH keys are always created after a pairing request. If the legacy pairing is to be used, it is         */
 /* recommended to undefine the macro in order to reduce the RAM footprint.                                      */
 /****************************************************************************************************************/
-#define CFG_ENABLE_SMP_SECURE
+${CFG_ENABLE_SMP_SECURE}
 
 /****************************************************************************************************************/
 /* Uses ChaCha20 random number generator instead of the C standard library random number generator.             */
@@ -214,8 +214,8 @@ ${NON_RET_HEAP_SZ}
 /*     - CFG_RETAIN_RAM_2_BLOCK: if defined, the 2nd RAM block must be retained.                                */
 /* By default, the SDK keeps all RAM cells retained.                                                            */
 /****************************************************************************************************************/
-#define CFG_RETAIN_RAM_1_BLOCK
-#define CFG_RETAIN_RAM_2_BLOCK
+${CFG_RETAIN_RAM_1_BLOCK}
+${CFG_RETAIN_RAM_2_BLOCK}
 
 /****************************************************************************************************************/
 /* Non-retained heap handling. The non-retained heap is either empty or not, and it may fill with messages      */
@@ -254,6 +254,12 @@ ${CFG_USE_AES}
 /* Use AES software decryption if CFG_USE_AES is defined.                                                       */
 /****************************************************************************************************************/
 ${CFG_AES_DECRYPT}
+
+
+/****************************************************************************************************************/
+/* Disable pre GPIO allocation.                                                                                 */
+/****************************************************************************************************************/
+${GPIO_DRV_PIN_ALLOC_MON_DISABLED}
 
 /****************************************************************************************************************/
 /* Temperature range selection (it applies to hibernation mode only).                                           */
