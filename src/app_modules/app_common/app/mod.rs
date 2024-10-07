@@ -3,12 +3,12 @@ use core::ptr::addr_of;
 use crate::{
     app_modules::{
         app::{zero_app_env_tag, AppEnvTag, APP_EASY_MAX_ACTIVE_CONNECTION},
-        app_cfg_addr_type,
+        app_cfg_addr_src, app_cfg_addr_type,
         app_common::{
             app_default_handler, app_state, AppDeviceInfo, AppDeviceName, APP_CONNECTABLE,
             APP_DISABLED, APP_IDX_MAX, APP_STATE_MAX,
         },
-        zero_app_prf_srv_sec, AdvertiseConfiguration, AppCallbacks, AppPrfSrvSec,
+        ms_to_ble_slots, zero_app_prf_srv_sec, AdvertiseConfiguration, AppCallbacks, AppPrfSrvSec,
         GapmConfiguration, PrfFuncCallbacks, PRFS_TASK_ID_MAX,
     },
     ble_stack::{
@@ -18,14 +18,15 @@ use crate::{
                 KeMsgGapmSetDevConfigCmd, KeMsgGapmStartAdvertiseCmd, GAPM_ADV_UNDIRECT,
                 GAPM_MASK_ATT_SVC_CHG_EN, GAPM_SET_DEV_CONFIG,
             },
-            GAP_AD_TYPE_COMPLETE_NAME, GAP_MAX_NAME_SIZE, GAP_NON_DISCOVERABLE,
-            GAP_ROLE_PERIPHERAL,
+            GAP_AD_TYPE_COMPLETE_NAME, GAP_GEN_DISCOVERABLE, GAP_MAX_NAME_SIZE,
+            GAP_NON_DISCOVERABLE, GAP_ROLE_PERIPHERAL,
         },
     },
     platform::core_modules::{
         common::{
-            co_min, BDAddr, ADV_ALLOW_SCAN_ANY_CON_WLST, ADV_ALL_CHNLS_EN, ADV_CHNL_37_EN,
-            ADV_CHNL_38_EN, ADV_CHNL_39_EN, ADV_DATA_LEN, KEY_LEN, SCAN_RSP_DATA_LEN,
+            co_min, BDAddr, ADV_ALLOW_SCAN_ANY_CON_ANY, ADV_ALLOW_SCAN_ANY_CON_WLST,
+            ADV_ALL_CHNLS_EN, ADV_CHNL_37_EN, ADV_CHNL_38_EN, ADV_CHNL_39_EN, ADV_DATA_LEN,
+            KEY_LEN, SCAN_RSP_DATA_LEN,
         },
         ke::task::{ke_state_set, ke_task_create, KeTaskDesc},
         rwip::{KeApiId, TASK_APP, TASK_GAPM, TASK_ID_DISS, TASK_ID_INVALID},
