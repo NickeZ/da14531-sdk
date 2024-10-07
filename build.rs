@@ -517,17 +517,11 @@ fn compile_sdk(
     let mut cc_builder = cc::Build::new();
 
     let mut cc_builder = cc_builder
-        .debug(true)
-        .target("thumbv6m-none-eabi")
-        .flag("-march=armv6-m")
         .flag("-Wno-expansion-to-defined")
         .flag("-Wno-unused-parameter")
         .flag("-fstack-usage")
-        .flag("-ffunction-sections")
-        .flag("-fdata-sections")
         .flag("-specs=nano.specs")
         .flag("-specs=nosys.specs")
-        .opt_level_str("z")
         .flag("-flto")
         .archiver("arm-none-eabi-gcc-ar")
         .ranlib("arm-none-eabi-gcc-ranlib")
