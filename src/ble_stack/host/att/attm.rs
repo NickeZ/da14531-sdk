@@ -16,7 +16,6 @@ pub use crate::bindings::{
     PERM_RIGHT_ENABLE, PERM_RIGHT_SECURE, PERM_RIGHT_UNAUTH,
 };
 
-use crate::platform::core_modules::ke::task::KeTaskId;
 
 unsafe impl Sync for AttmDesc128 {}
 
@@ -31,28 +30,28 @@ pub struct AttmDesc128 {
     pub value: *const u8,
 }
 
-// TODO: rustify
-#[inline]
-pub fn attm_svc_create_db_128(
-    svc_idx: u8,
-    shdl: &mut u16,
-    cfg_flag: *mut u8,
-    max_nb_att: u8,
-    att_tbl: *mut u8,
-    dest_id: KeTaskId,
-    att_db: *const AttmDesc128,
-    svc_perm: u8,
-) -> u8 {
-    unsafe {
-        crate::bindings::attm_svc_create_db_128(
-            svc_idx,
-            shdl,
-            cfg_flag,
-            max_nb_att,
-            att_tbl,
-            dest_id,
-            att_db as *const _,
-            svc_perm,
-        )
-    }
-}
+// // TODO: rustify
+// #[inline]
+// pub fn attm_svc_create_db_128(
+//     svc_idx: u8,
+//     shdl: &mut u16,
+//     cfg_flag: *mut u8,
+//     max_nb_att: u8,
+//     att_tbl: *mut u8,
+//     dest_id: KeTaskId,
+//     att_db: *const AttmDesc128,
+//     svc_perm: u8,
+// ) -> u8 {
+//     unsafe {
+//         crate::bindings::attm_svc_create_db_128(
+//             svc_idx,
+//             shdl,
+//             cfg_flag,
+//             max_nb_att,
+//             att_tbl,
+//             dest_id,
+//             att_db as *const _,
+//             svc_perm,
+//         )
+//     }
+// }

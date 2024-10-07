@@ -264,7 +264,7 @@ fn update_device_info() {
         device_info.dev_name.length = cropped_len as u8;
 
         device_info.dev_name.name[..cropped_len]
-            .copy_from_slice((&USER_DEVICE_NAME[..cropped_len]).as_bytes());
+            .copy_from_slice((USER_DEVICE_NAME[..cropped_len]).as_bytes());
 
         device_info.appearance = 0x0200; // Tag appearance
     }
@@ -282,8 +282,7 @@ fn reset_app_env() {
 fn app_task_in_user_app(task_id: KeApiId) -> bool {
     USER_PRF_FUNCS
         .iter()
-        .find(|user_prf_func| user_prf_func.task_id == task_id)
-        .is_some()
+        .any(|user_prf_func| user_prf_func.task_id == task_id)
 }
 
 #[no_mangle]
@@ -392,7 +391,7 @@ fn app_easy_gap_undirected_advertise_start_create_msg() -> KeMsgGapmStartAdverti
 
     let device_name = unsafe { USER_DEVICE_NAME };
 
-    if device_name.len() > 0 {
+    if !device_name.is_empty() {
         let total_adv_space = 3 + host.adv_data_len as u16 + 2 + device_name.len() as u16;
         let total_scan_space = host.scan_rsp_data_len as u16 + 2 + device_name.len() as u16;
 

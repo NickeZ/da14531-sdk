@@ -191,6 +191,9 @@ impl AppTimer {
     }
 }
 
+/// # Safety
+///
+/// Here be dragons
 #[no_mangle]
 pub unsafe extern "C" fn app_timer_api_process_handler(
     msg_id: KeMsgId,
@@ -219,7 +222,7 @@ pub unsafe extern "C" fn app_timer_api_process_handler(
         }
         _ => {
             let msg_id = msg_id as KeMsgId;
-            if msg_id < APP_MODULES_TIMER_API_MES0 || msg_id > APP_MODULES_TIMER_API_LAST_MES {
+            if !(APP_MODULES_TIMER_API_MES0..=APP_MODULES_TIMER_API_LAST_MES).contains(&msg_id) {
                 ProcessEventResponse::PR_EVENT_UNHANDLED
             } else {
                 let handle = timer_msg_id_to_handle(msg_id);

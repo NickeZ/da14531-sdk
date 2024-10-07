@@ -20,12 +20,9 @@ pub use da14531_sdk_macros::{
     default_handlers_configuration, register_app_callbacks,
 };
 
-use crate::{
-    ble_stack::host::gap::gapc::task::GapcConnectionReqInd,
-    platform::core_modules::{
-        common::{ADV_DATA_LEN, SCAN_RSP_DATA_LEN},
-        rwip::KeApiId,
-    },
+use crate::platform::core_modules::{
+    common::{ADV_DATA_LEN, SCAN_RSP_DATA_LEN},
+    rwip::KeApiId,
 };
 
 pub mod app;
@@ -111,20 +108,6 @@ pub fn app_easy_gap_update_adv_data(
 }
 
 #[inline]
-pub fn default_app_on_connection(conidx: u8, param: *const GapcConnectionReqInd) {
-    unsafe {
-        crate::bindings::default_app_on_connection(conidx, param);
-    }
-}
-
-#[inline]
-pub fn default_app_on_init() {
-    unsafe {
-        crate::bindings::default_app_on_init();
-    }
-}
-
-#[inline]
 pub fn get_user_prf_srv_perm(task_id: KeApiId) -> AppPrfSrvPerm {
     unsafe { crate::bindings::get_user_prf_srv_perm(task_id) }
 }
@@ -157,7 +140,7 @@ pub const fn app_cfg_addr_type(val: u32) -> u8 {
 }
 
 pub const fn app_cfg_addr_src(val: u32) -> u8 {
-    (val as u8 & 0x03) >> 0
+    val as u8 & 0x03
 }
 
 pub const fn ms_to_ble_slots(val: u32) -> u16 {
