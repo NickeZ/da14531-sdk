@@ -684,6 +684,19 @@ fn main() {
         &sdk_asm_sources,
     );
 
+    // Also link with vendor provided binary blobs :'(
+    println!("cargo::rustc-link-lib=static:+whole-archive,+verbatim=da14531.a");
+    // Search path to binary lib above
+    let path = PathBuf::from_iter([
+        &getenv("SDK_PATH"),
+        "sdk",
+        "platform",
+        "system_library",
+        "output",
+        "IAR",
+    ]);
+    println!("cargo::rustc-link-search=native={}", path.to_str().unwrap());
+
     generate_linker_script(&include_dirs, &defines);
 
     println!("cargo:rerun-if-changed=bindings.h");
