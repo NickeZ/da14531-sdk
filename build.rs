@@ -75,7 +75,7 @@ const INCLUDE_PATHS: &[&str] = &[
     "/sdk/platform/driver/trng",
     "/sdk/platform/driver/uart",
     "/sdk/platform/include",
-    "/sdk/platform/include/CMSIS/5.6.0/Include",
+    "/sdk/platform/include/CMSIS/5.9.0/CMSIS/Core/Include",
     "/sdk/platform/system_library/include",
     "/sdk/platform/utilities/otp_cs",
     "/sdk/platform/utilities/otp_hdr",
