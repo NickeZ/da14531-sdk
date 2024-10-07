@@ -126,10 +126,11 @@ const SDK_C_SOURCES: &[&str] = &[
     "/sdk/platform/utilities/otp_cs/otp_cs.c",
     "/sdk/platform/utilities/otp_hdr/otp_hdr.c",
 ];
-//static ref SDK_ASM_SOURCES: Vec<&'static str> = vec![
-//    "/sdk/platform/arch/boot/GCC/ivtable_DA14531.S",
-//    "/sdk/platform/arch/boot/GCC/startup_DA14531.S"
-//];
+
+const SDK_ASM_SOURCES: &[&str] = &[
+    "/sdk/platform/arch/boot/GCC/startup_DA14531.S",
+    "/sdk/platform/arch/boot/GCC/ivtable_DA14531.S",
+];
 
 enum ConfigItemValue {
     Undefined,
@@ -423,17 +424,23 @@ fn setup_build() -> (
         })
         .collect();
 
-    //let sdk_asm_sources: Vec<_> = SDK_ASM_SOURCES
-    //    .iter()
-    //    .map(|path| format!("{}{}", sdk_path, path))
-    //    .collect();
+    let sdk_asm_sources: Vec<_> = SDK_ASM_SOURCES
+        .iter()
+        .map(|path| format!("{}{}", sdk_path, path))
+        .collect();
 
     let defines: Vec<_> = defines
         .iter()
         .map(|(key, value)| (key.to_string(), value.map(|value| value.to_string())))
         .collect();
 
-    (include_dirs, include_files, sdk_c_sources, vec![], defines)
+    (
+        include_dirs,
+        include_files,
+        sdk_c_sources,
+        sdk_asm_sources,
+        defines,
+    )
 }
 
 fn generate_bindings(
@@ -492,8 +499,16 @@ fn compile_sdk(
     include_files: &[String],
     defines: &[(String, Option<String>)],
     sdk_c_sources: &[String],
-    _sdk_asm_sources: &[String],
+    sdk_asm_sources: &[String],
 ) {
+    // Assembly files, we don't want to use the -include flag here
+    let asm_objs = cc::Build::new()
+        .files(sdk_asm_sources)
+        .flag("-specs=nano.specs")
+        .flag("-specs=nosys.specs")
+        .define("__DA14531__", None)
+        .compile_intermediates();
+
     let mut cc_builder = cc::Build::new();
 
     let mut cc_builder = cc_builder
@@ -525,6 +540,10 @@ fn compile_sdk(
         cc_builder = cc_builder.file(translate_path(file));
     }
 
+    for file in asm_objs {
+        cc_builder.object(file);
+    }
+
     // Bindgen creates a C-file for static fns
     {
         let mut path = env::temp_dir();
@@ -534,11 +553,6 @@ fn compile_sdk(
     }
 
     cc_builder.compile("sdk");
-
-    // cc::Build::new()
-    //     .files(sdk_asm_sources)
-    //     .define("__DA14531__", None)
-    //     .compile("boot");
 }
 
 // Panics in case something is wrong
