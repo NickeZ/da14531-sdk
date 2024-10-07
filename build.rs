@@ -552,7 +552,7 @@ fn compile_sdk(
         cc_builder.include(translate_path(&getenv("CARGO_MANIFEST_DIR")));
     }
 
-    cc_builder.compile("sdk");
+    cc_builder.compile("da14531_sdk");
 }
 
 // Panics in case something is wrong
