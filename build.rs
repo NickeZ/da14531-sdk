@@ -683,6 +683,7 @@ fn main() {
             "process_event_response",
             "syscntl_dcdc_level_t",
             "APP_MSG",
+            "rf_tx_pwr_lvl_t",
         ],
     );
 
